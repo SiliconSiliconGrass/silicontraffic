@@ -161,6 +161,3 @@ class RoadNet:
     @property
     def traffic_lights(self) -> list[TrafficLight]:
         return list(self.traffic_light_bank.values())
-    
-    def traffic_movement_modeling(self):
-        pass
