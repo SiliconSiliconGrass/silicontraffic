@@ -1,11 +1,26 @@
+have_traci = True
+try:
+    import traci
+    from traci.constants import VAR_LANE_ID, VAR_SPEED
+
+except (ImportError, ModuleNotFoundError):
+    have_traci = False
+
 from ..ssumo.silicon_sumo_engine import SiliconSumoEngine
 from .abstract_monitor import Monitor
 from ..abstract_traffic_env_engine import TrafficEnvEngine
 from ..vehicle import Vehicle
 
+
 class GlobalMonitor(Monitor):
     """
     Global stats retriever
+
+    provides:
+        - get_avg_waiting_time: float
+        - get_avg_travel_time: float
+        - get_avg_stop_count: float
+        - get_avg_queue_length: float
     """
     def __init__(self):
         super().__init__()
@@ -13,13 +28,7 @@ class GlobalMonitor(Monitor):
     def attach_to(self, engine: TrafficEnvEngine):
         self.engine = engine
         self.setup_auto_reset(engine)
-
-        if isinstance(engine, SiliconSumoEngine):
-            self.engine.on_step(lambda _: self._on_step_sumo())
-        else:
-            self.engine.on_step(lambda _: self._on_step())
-
-        self.vehicle_bank: dict[str, Vehicle] = {} # vehicle id -> vehicle
+        self.engine.on_step(lambda _: self._on_step())
 
         self._vehicle_waiting_time: dict[str, float] = {} # vehicle id -> accumulative waiting time
         self._vehicle_stop: dict[str, int] = {} # vehicle id -> accumulative times of stop
@@ -31,7 +40,6 @@ class GlobalMonitor(Monitor):
         self._global_avg_queue_length: list[float] = [] # average queue length of all lanes (at each step)
     
     def reset(self):
-        self.vehicle_bank.clear()
         self._vehicle_waiting_time.clear()
         self._vehicle_stop.clear()
         self._vehicle_is_waiting.clear()
@@ -40,75 +48,39 @@ class GlobalMonitor(Monitor):
 
     def _on_step(self):
         curr_time = self.engine.get_time()
-
+        
         # vehicle based stats
-        for lane in self.engine.road_net.lanes:
-            vehicle_ids = self.engine.get_lane_vehicle_ids(lane)
-            for vehicle_id in vehicle_ids:
-                vehicle = self.engine.get_vehicle_info(vehicle_id)
+        departed_vehicle_ids = self.engine.get_last_step_departed_vehicle_ids()
+        arrived_vehicle_ids = self.engine.get_last_step_arrived_vehicle_ids()
 
-                if not vehicle.running: # vehicles not running
-                    if vehicle_id in self._vehicle_depart_time and vehicle_id not in self._vehicle_arrive_time:
-                        self._vehicle_arrive_time[vehicle_id] = curr_time # record arrive time
+        all_vehicle_ids = self.engine.get_vehicle_ids()
 
-                        print(f"vehicle {vehicle_id} arrive at {curr_time}") # DEBUG
-                    continue
+        for vehicle_id in all_vehicle_ids:
 
-                if vehicle_id not in self.vehicle_bank:
-                    # create new vehicle record
-                    self.vehicle_bank[vehicle_id] = vehicle
-                    self._vehicle_waiting_time[vehicle_id] = 0.0
-                    self._vehicle_stop[vehicle_id] = 0
-                    self._vehicle_is_waiting[vehicle_id] = False
-                    self._vehicle_depart_time[vehicle_id] = curr_time # record depart time
-                else:
-                    self.vehicle_bank[vehicle_id].speed = vehicle.speed
+            vehicle = self.engine.get_vehicle_info(vehicle_id)
 
-                    prev_waiting = self._vehicle_is_waiting[vehicle_id]
-                    curr_waiting = (vehicle.speed < 0.1)
-
-                    if (not prev_waiting) and curr_waiting:
-                        self._vehicle_stop[vehicle_id] += 1 # record the start of a stop
-                    if curr_waiting:
-                        self._vehicle_waiting_time[vehicle_id] += 1 # record the waiting time
-                    
-                    self._vehicle_is_waiting[vehicle_id] = curr_waiting # update waiting status
-
-        # lane based stats
-        sum_queue_length = sum([self.engine.get_lane_queue_length(lane) for lane in self.engine.road_net.lanes])
-        avg_queue_length = sum_queue_length / len(self.engine.road_net.lanes) if len(self.engine.road_net.lanes) > 0 else 0.0
-        self._global_avg_queue_length.append(avg_queue_length)
-    
-    def _on_step_sumo(self):
-        # optimize for sumo
-        curr_time = self.engine.get_time()
-
-        assert isinstance(self.engine, SiliconSumoEngine)
-
-        all_reachable_vehicle_ids = self.engine.vehicle.getIDList()
-
-        departed_vehicle_ids = self.engine.simulation.getDepartedIDList()
-        arrived_vehicle_ids = self.engine.simulation.getArrivedIDList()
-    
+            if vehicle_id not in self._vehicle_waiting_time:
+                self._vehicle_waiting_time[vehicle_id] = 0.0
+            
+            if vehicle_id not in self._vehicle_stop:
+                self._vehicle_stop[vehicle_id] = 0
+            
+            if vehicle_id not in self._vehicle_is_waiting:
+                self._vehicle_is_waiting[vehicle_id] = (vehicle.speed < 0.1)
+            
+            if vehicle.speed < 0.1:
+                self._vehicle_waiting_time[vehicle_id] += 1 # record waiting time
+                if not self._vehicle_is_waiting[vehicle_id]: # record the start of one stop
+                    self._vehicle_stop[vehicle_id] += 1
+                self._vehicle_is_waiting[vehicle_id] = True
+            else:
+                self._vehicle_is_waiting[vehicle_id] = False
 
         for vehicle_id in departed_vehicle_ids:
-            if vehicle_id not in self._vehicle_depart_time:
-                depart_time = self.engine.vehicle.getDeparture(vehicle_id)
-                # print(f"vehicle {vehicle_id} depart at {depart_time}") # DEBUG
-                self._vehicle_depart_time[vehicle_id] = depart_time
+            self._vehicle_depart_time[vehicle_id] = curr_time # record vehicle depart time
 
         for vehicle_id in arrived_vehicle_ids:
-            self._vehicle_arrive_time[vehicle_id] = curr_time
-        
-        for vehicle_id in all_reachable_vehicle_ids:
-            waiting_time = float(self.engine.vehicle.getParameter(vehicle_id, "device.tripinfo.waitingTime"))
-            self._vehicle_waiting_time[vehicle_id] = waiting_time
-            stop_count = int(self.engine.vehicle.getParameter(vehicle_id, "device.tripinfo.waitingCount"))
-            self._vehicle_stop[vehicle_id] = stop_count
-
-            # print(f"vehicle {vehicle_id} waiting time {waiting_time} stop count {stop_count}") # DEBUG
-
-            # breakpoint()
+            self._vehicle_arrive_time[vehicle_id] = curr_time # record vehicle arrive time
 
         # lane based stats
         sum_queue_length = sum([self.engine.get_lane_queue_length(lane) for lane in self.engine.road_net.lanes])

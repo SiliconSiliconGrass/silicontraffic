@@ -33,6 +33,11 @@ class SiliconCityFlowEngine(TrafficEnvEngine):
         self._cache_vehicle_info: dict[str, Vehicle] = {} # vehicle id -> vehicle
 
         self._cache_traffic_light_phase_map: dict[str, int] = {} # traffic light id -> phase index
+        self._prev_vehicle_ids: set[str] = set()
+        self._last_step_departed_vehicle_ids: set[str] = set()
+        self._last_step_arrived_vehicle_ids: set[str] = set()
+        
+        self._curr_time = -1
 
     def terminate(self):
         # it seems that cityflow does not need to terminate explicitly
@@ -45,13 +50,50 @@ class SiliconCityFlowEngine(TrafficEnvEngine):
         self._cache_lane_vehicle_ids_time = -1
         self._cache_vehicle_info.clear()
         self._cache_traffic_light_phase_map.clear()
+        self._prev_vehicle_ids.clear()
+        self._last_step_departed_vehicle_ids.clear()
+        self._last_step_arrived_vehicle_ids.clear()
 
     def _simulation_step(self, step_num: int = 1):
         self._cache_vehicle_info.clear()
-        self.eng.next_step()
+        self._cache_lane_vehicle_ids.clear()
+        if step_num < 1:
+            step_num = 1
+        for _ in range(int(step_num)):
+            self.eng.next_step()
+            self._curr_time = self.eng.get_current_time()
+            self._cache_lane_vehicle_ids = self.eng.get_lane_vehicles()
     
+            curr_vehicle_ids: set[str] = set()
+
+            for lane_vehicle_ids in self._cache_lane_vehicle_ids.values():
+                for vehicle_id in lane_vehicle_ids:
+
+                    info_dict: dict = self.eng.get_vehicle_info(vehicle_id)
+                    if "running" not in info_dict or not info_dict["running"]:
+                        continue
+
+                    lane_position = float(info_dict["distance"])
+                    speed = float(info_dict["speed"])
+                    drivable_id = info_dict["drivable"]
+                    route: list[str] = info_dict["route"].split(" ")
+                    vehicle = Vehicle(
+                        id=vehicle_id,
+                        lane_position=lane_position,
+                        speed=speed,
+                        drivable_id=drivable_id,
+                        route=route
+                    )
+                    self._cache_vehicle_info[vehicle_id] = vehicle
+
+                curr_vehicle_ids.update(lane_vehicle_ids)
+            
+            self._last_step_departed_vehicle_ids = curr_vehicle_ids - self._prev_vehicle_ids
+            self._last_step_arrived_vehicle_ids = self._prev_vehicle_ids - curr_vehicle_ids
+            self._prev_vehicle_ids = curr_vehicle_ids
+
     def get_time(self) -> float:
-        return self.eng.get_current_time()
+        return self._curr_time
     
     def set_traffic_light_phase(self, traffic_light: Union[str, TrafficLight], phase: Union[int, TrafficLightPhase]):
         if isinstance(traffic_light, TrafficLight):
@@ -69,42 +111,24 @@ class SiliconCityFlowEngine(TrafficEnvEngine):
         phase_index = self._cache_traffic_light_phase_map[traffic_light]
         return self.road_net.get_traffic_light(traffic_light).phases[phase_index]
 
+    def get_vehicle_ids(self) -> list[str]:
+        return list(self._cache_vehicle_info.keys())
+
     def get_lane_vehicle_ids(self, lane: Union[str, Lane]) -> list[str]:
         if isinstance(lane, Lane):
             lane = lane.id
-        
-        curr_simulation_time = self.get_time()
-        if self._cache_lane_vehicle_ids_time != curr_simulation_time:
-            self._cache_lane_vehicle_ids = self.eng.get_lane_vehicles()
-            self._cache_lane_vehicle_ids_time = curr_simulation_time
-        
-        assert lane in self._cache_lane_vehicle_ids, f"lane {lane} not found"
+
+        if lane not in self._cache_lane_vehicle_ids:
+            raise ValueError(f"lane {lane} not found")
         return self._cache_lane_vehicle_ids[lane]
 
     def get_vehicle_info(self, vehicle_id) -> Vehicle:
-        if vehicle_id in self._cache_vehicle_info:
-            return self._cache_vehicle_info[vehicle_id]
+        if vehicle_id not in self._cache_vehicle_info:
+            raise ValueError(f"vehicle {vehicle_id} not found")
+        return self._cache_vehicle_info[vehicle_id]
+    
+    def get_last_step_departed_vehicle_ids(self) -> list[str]:
+        return list(self._last_step_departed_vehicle_ids)
         
-        info_dict: dict = self.eng.get_vehicle_info(vehicle_id)
-
-        assert "running" in info_dict, f"key 'running' not found in vehicle info dict {info_dict}"
-
-        if not info_dict["running"]:
-            vehicle = Vehicle(id=vehicle_id, running=False)
-        
-        else:
-            lane_position = float(info_dict["distance"])
-            speed = float(info_dict["speed"])
-            drivable_id = info_dict["drivable"]
-            route = info_dict["route"].split(" ")
-            vehicle = Vehicle(
-                id=vehicle_id,
-                running=True,
-                lane_position=lane_position,
-                speed=speed,
-                drivable_id=drivable_id,
-                route=route
-            )
-        
-        self._cache_vehicle_info[vehicle_id] = vehicle
-        return vehicle
+    def get_last_step_arrived_vehicle_ids(self) -> list[str]:
+        return list(self._last_step_arrived_vehicle_ids)

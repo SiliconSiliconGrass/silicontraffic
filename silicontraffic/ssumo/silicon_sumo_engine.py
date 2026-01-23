@@ -1,5 +1,6 @@
 try:
     import traci
+    from traci.constants import VAR_LANE_ID, VAR_SPEED, VAR_LANEPOSITION
 except (ImportError, ModuleNotFoundError):
     raise ImportError("traci module not found. Please install sumo first.")
 try:
@@ -105,6 +106,7 @@ class SiliconSumoEngine(TrafficEnvEngine):
 
         self._cache_lane_vehicle_ids: dict[str, list[str]] = {} # lane id -> list of vehicle ids
         self._cache_vehicle_info: dict[str, Vehicle] = {} # vehicle id -> vehicle
+        self._cache_vehicle_route_map: dict[str, list[str]] = {} # vehicle id -> route (list of edge ids)
     
     def update_road_net(self):
         # Parse sumocfg to get net-file path
@@ -174,6 +176,7 @@ class SiliconSumoEngine(TrafficEnvEngine):
 
         self._cache_lane_vehicle_ids.clear()
         self._cache_vehicle_info.clear()
+        self._cache_vehicle_route_map.clear()
 
     def _simulation_step(self, step_num: int = 1):
         self._cache_lane_vehicle_ids.clear()
@@ -182,9 +185,39 @@ class SiliconSumoEngine(TrafficEnvEngine):
             step_num = 1
         for _ in range(int(step_num)):
             self._connection.simulationStep()
+            departed_vehicle_ids = self.simulation.getDepartedIDList()
+            arrived_vehicle_ids = self.simulation.getArrivedIDList()
+            for vehicle_id in departed_vehicle_ids:
+                self.vehicle.subscribe(vehicle_id, [VAR_LANE_ID, VAR_SPEED, VAR_LANEPOSITION])
+                self._cache_vehicle_route_map[vehicle_id] = self.vehicle.getRoute(vehicle_id)
+            
+            subscription_results: dict[str, dict] = self.vehicle.getAllSubscriptionResults()
+            for vehicle_id, vehicle_info in subscription_results.items():
+                lane_position = vehicle_info[VAR_LANEPOSITION]
+                speed = vehicle_info[VAR_SPEED]
+                drivable_id = vehicle_info[VAR_LANE_ID]
+                route = self._cache_vehicle_route_map.get(vehicle_id)
+
+                self._cache_vehicle_info[vehicle_id] = Vehicle(
+                    id=vehicle_id,
+                    lane_position=lane_position,
+                    speed=speed,
+                    drivable_id=drivable_id,
+                    route=route
+                )
+
+                if drivable_id not in self._cache_lane_vehicle_ids:
+                    self._cache_lane_vehicle_ids[drivable_id] = []
+                self._cache_lane_vehicle_ids[drivable_id].append(vehicle_id)
+            
+            self._cache_last_step_departed_vehicle_ids = departed_vehicle_ids
+            self._cache_last_step_arrived_vehicle_ids = arrived_vehicle_ids
     
     def get_time(self) -> float:
         return self.simulation.getTime()
+    
+    def get_vehicle_ids(self) -> list[str]:
+        return list(self._cache_vehicle_info.keys())
     
     def set_traffic_light_phase(self, traffic_light: Union[str, TrafficLight], phase: Union[int, TrafficLightPhase]):
         if isinstance(traffic_light, TrafficLight):
@@ -203,36 +236,20 @@ class SiliconSumoEngine(TrafficEnvEngine):
     def get_lane_vehicle_ids(self, lane: Union[str, Lane]) -> list[str]:
         if isinstance(lane, Lane):
             lane = lane.id
-        if lane in self._cache_lane_vehicle_ids:
-            return self._cache_lane_vehicle_ids[lane]
-        self._cache_lane_vehicle_ids[lane] = self.lane.getLastStepVehicleIDs(lane)
-        return self._cache_lane_vehicle_ids[lane]
+        if lane not in self.road_net.lane_bank:
+            raise ValueError(f"lane {lane} not found")
+        return self._cache_lane_vehicle_ids.get(lane, [])
     
     def get_vehicle_info(self, vehicle_id) -> Vehicle:
-        if vehicle_id in self._cache_vehicle_info:
-            return self._cache_vehicle_info[vehicle_id]
-
-        running = (self.vehicle.getRouteIndex(vehicle_id) != -1)
-
-        if not running:
-            vehicle = Vehicle(vehicle_id, running=False)
-
-        else:
-            lane_position = self.vehicle.getLanePosition(vehicle_id)
-            speed = self.vehicle.getSpeed(vehicle_id)
-            drivable_id = self.vehicle.getLaneID(vehicle_id)
-            route = self.vehicle.getRoute(vehicle_id)
-            vehicle = Vehicle(
-                id=vehicle_id,
-                running=True,
-                lane_position=lane_position,
-                speed=speed,
-                drivable_id=drivable_id,
-                route=route
-            )
-        
-        self._cache_vehicle_info[vehicle_id] = vehicle
-        return vehicle
+        if vehicle_id not in self._cache_vehicle_info:
+            raise ValueError(f"vehicle {vehicle_id} not found")
+        return self._cache_vehicle_info[vehicle_id]
+    
+    def get_last_step_departed_vehicle_ids(self) -> list[str]:
+        return self._cache_last_step_departed_vehicle_ids
+    
+    def get_last_step_arrived_vehicle_ids(self) -> list[str]:
+        return self._cache_last_step_arrived_vehicle_ids
     
     # def get_lane_queue_length(self, lane: Union[str, Lane], speed_threshold = None) -> int:
     #     if isinstance(lane, Lane):

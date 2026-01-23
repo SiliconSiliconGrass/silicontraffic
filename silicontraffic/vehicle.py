@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 @dataclass
 class Vehicle:
     id: str
-    running: bool
+    # running: bool
 
     lane_position: float = None
     """The distance vehicle has traveled along current lane."""

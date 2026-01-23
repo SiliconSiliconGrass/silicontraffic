@@ -59,6 +59,16 @@ class TrafficEnvEngine(ABC):
         pass
     
     @abstractmethod
+    def get_vehicle_ids(self) -> list[str]:
+        """
+        Get the IDs of all running vehicles in the traffic environment.
+
+        Returns:
+            list[str]: The IDs of all vehicles in the traffic environment.
+        """
+        pass
+
+    @abstractmethod
     def get_lane_vehicle_ids(self, lane: Union[str, Lane]) -> list[str]:
         """
         Get the IDs of vehicles on a lane.
@@ -94,6 +104,26 @@ class TrafficEnvEngine(ABC):
 
         Returns:
             TrafficLightPhase: The phase of the traffic light.
+        """
+        pass
+    
+    @abstractmethod
+    def get_last_step_departed_vehicle_ids(self) -> list[str]:
+        """
+        Get the IDs of vehicles that departed in the last step.
+
+        Returns:
+            list[str]: The IDs of vehicles that departed in the last step.
+        """
+        pass
+
+    @abstractmethod
+    def get_last_step_arrived_vehicle_ids(self) -> list[str]:
+        """
+        Get the IDs of vehicles that arrived in the last step.
+
+        Returns:
+            list[str]: The IDs of vehicles that arrived in the last step.
         """
         pass
 

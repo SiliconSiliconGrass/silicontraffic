@@ -21,9 +21,9 @@ engine = scityflow.Engine(cityflow_config_path)
 global_monitor = GlobalMonitor()
 movements_monitor = MovementsMonitor()
 
-# # attach monitors to engine
-# global_monitor.attach_to(engine)
-# movements_monitor.attach_to(engine)
+# attach monitors to engine
+global_monitor.attach_to(engine)
+movements_monitor.attach_to(engine)
 
 def choose_phases():
     # this is a random example of phase determination
