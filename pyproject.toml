@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "A unified traffic simulation environment interface for SUMO and CityFlow"
 readme = "README.md"
 authors = [
-    { name = "IndexError", email = "indexguo@163.com" }
+    { name = "SiliconSiliconGrass", email = "indexguo@163.com" }
 ]
 license = { file = "LICENSE" }
 classifiers = [
