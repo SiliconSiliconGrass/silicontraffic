@@ -6,6 +6,16 @@ from .vehicle import Vehicle
 class TrafficEnvEngine(ABC):
     """
     Abstract base class for traffic environment engines.
+
+    ### provides:
+        - `road_net` attribute, to ensure convenient access to road net structure info.
+        - `get_time` method, to get the current simulation time.
+        - `get_lane_vehicle_ids` method, to get the IDs of vehicles on a lane.
+        - `get_vehicle_info` method, to get the information of a vehicle.
+        - `get_traffic_light_phase` method, to get the phase of a traffic light.
+        - `set_traffic_light_phase` method, to set the phase of a traffic light.
+    
+    ### Note that `TrafficEnvEngine` instances only provide basic traffic data retrieval methods, for advanced statistics, see `silicontraffic.monitor` module
     """
 
     road_net: RoadNet
@@ -18,6 +28,13 @@ class TrafficEnvEngine(ABC):
     def reset(self):
         """
         Reset the traffic environment to its initial state.
+        """
+        pass
+
+    @abstractmethod
+    def terminate(self):
+        """
+        Terminate the traffic environment simulation.
         """
         pass
 
@@ -38,17 +55,6 @@ class TrafficEnvEngine(ABC):
 
         Returns:
             float: The current simulation time.
-        """
-        pass
-
-    @abstractmethod
-    def set_traffic_light_phase(self, traffic_light: Union[str, TrafficLight], phase: Union[int, TrafficLightPhase]):
-        """
-        Set the phase of a traffic light.
-
-        Args:
-            traffic_light (Union[str, Trafficlight]): The traffic light to set the phase for. Can be either the traffic light ID or the `Trafficlight` object.
-            phase (Union[int, TrafficlightPhase]): The phase to set for the traffic light. Can be either the phase index or the `TrafficlightPhase` enum value.
         """
         pass
     
@@ -78,6 +84,29 @@ class TrafficEnvEngine(ABC):
         """
         pass
 
+    @abstractmethod
+    def get_traffic_light_phase(self, traffic_light: Union[str, TrafficLight]) -> TrafficLightPhase:
+        """
+        Get the phase of a traffic light.
+
+        Args:
+            traffic_light (Union[str, TrafficLight]): The traffic light to get the phase for. Can be either the traffic light ID or the `TrafficLight` object.
+
+        Returns:
+            TrafficLightPhase: The phase of the traffic light.
+        """
+        pass
+
+    @abstractmethod
+    def set_traffic_light_phase(self, traffic_light: Union[str, TrafficLight], phase: Union[int, TrafficLightPhase]):
+        """
+        Set the phase of a traffic light.
+
+        Args:
+            traffic_light (Union[str, TrafficLight]): The traffic light to set the phase for. Can be either the traffic light ID or the `TrafficLight` object.
+            phase (Union[int, TrafficLightPhase]): The phase to set for the traffic light. Can be either the phase index or the `TrafficLightPhase` enum value.
+        """
+        pass
 
 
     def step(self, step_num: int = 1):
@@ -116,3 +145,22 @@ class TrafficEnvEngine(ABC):
         """
         self.step_handlers.append(handler)
         return handler
+
+    def get_lane_queue_length(self, lane: Union[str, Lane], speed_threshold: float = 0.1) -> int:
+        """
+        Get the queue length of a lane.
+
+        Args:
+            lane (Union[str, Lane]): The lane to get the queue length for. Can be either the lane ID or the `Lane` object.
+            speed_threshold (float, optional): The speed threshold to consider a vehicle as in queue. Defaults to 0.1.
+
+        Returns:
+            int: The queue length of the lane. (the number of vehicles with speed less than `speed_threshold`)
+        """
+        vehicle_ids = self.get_lane_vehicle_ids(lane)
+        queue_length = 0
+        for vehicle_id in vehicle_ids:
+            vehicle = self.get_vehicle_info(vehicle_id)
+            if vehicle.speed < speed_threshold:
+                queue_length += 1
+        return queue_length

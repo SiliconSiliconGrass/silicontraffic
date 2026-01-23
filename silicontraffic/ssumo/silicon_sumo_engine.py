@@ -53,7 +53,7 @@ SUMO = check_binary('sumo')
 SUMO_GUI = check_binary('sumo-gui')
 
 class SiliconSumoEngine(TrafficEnvEngine):
-    def __init__(self, sumocfg_path: str, log_path: str = None, port: int = None, seed: int = None, time_to_teleport: int = 600, use_gui: bool = False):
+    def __init__(self, sumocfg_path: str, log_path: str = "temp/", port: int = None, seed: int = None, time_to_teleport: int = 600, waiting_time_memory: int = 100, use_gui: bool = False):
         super().__init__()
         self.sumocfg_path = sumocfg_path
 
@@ -67,6 +67,7 @@ class SiliconSumoEngine(TrafficEnvEngine):
 
         self.log_path = log_path
         self.time_to_teleport = time_to_teleport
+        self.waiting_time_memory = waiting_time_memory
         self.use_gui = use_gui
         
         self._connection: traci.connection.Connection = None
@@ -74,6 +75,7 @@ class SiliconSumoEngine(TrafficEnvEngine):
         # Load road net
         self.road_net: RoadNet = None
         self.update_road_net()
+        self.traffic_light_ids = list(self.road_net.traffic_light_bank.keys())
 
         # Create domain instances as exposed APIs (exactly the same usage with traci)
         self.busstop = BusStopDomain()
@@ -101,7 +103,8 @@ class SiliconSumoEngine(TrafficEnvEngine):
         self.vehicle = VehicleDomain()
         self.vehicletype = VehicleTypeDomain()
 
-        self.step_handlers: list[Callable[['SiliconSumo'], None]] = []
+        self._cache_lane_vehicle_ids: dict[str, list[str]] = {} # lane id -> list of vehicle ids
+        self._cache_vehicle_info: dict[str, Vehicle] = {} # vehicle id -> vehicle
     
     def update_road_net(self):
         # Parse sumocfg to get net-file path
@@ -113,9 +116,9 @@ class SiliconSumoEngine(TrafficEnvEngine):
                 self.net_file_path = elem.get('value')
                 break
         
-        assert self.net_file_path is not None, "net-file path not found in sumocfg"
+        assert self.net_file_path is not None, "`net-file` tag not found in sumocfg"
 
-        # Load road net (with traffic light logics)
+        # Load road net
         self.road_net = load_sumo_road_net(os.path.join(os.path.dirname(self.sumocfg_path), self.net_file_path))
 
     def terminate(self):
@@ -135,12 +138,12 @@ class SiliconSumoEngine(TrafficEnvEngine):
         command += ['--time-to-teleport', str(self.time_to_teleport)]
         command += ['--no-warnings', 'True']
         command += ['--duration-log.disable', 'True']
-        if self.log_path:
-            command += ['--tripinfo-output',
-                        self.log_path + 'trip.xml']
+        # command += ['--waiting-time-memory', str(self.waiting_time_memory)]
+        command += ['--tripinfo-output', os.path.join(self.log_path, 'trip.xml')]
         subprocess.Popen(command)
 
-        time.sleep(1)
+        time.sleep(1) # wait for sumo to start
+
         self._connection = traci.connect(port=self.port)
         
         # Set connections for domain instances, so that they can be used as exposed APIs
@@ -169,11 +172,19 @@ class SiliconSumoEngine(TrafficEnvEngine):
         self.vehicle._setConnection(self._connection)
         self.vehicletype._setConnection(self._connection)
 
+        self._cache_lane_vehicle_ids.clear()
+        self._cache_vehicle_info.clear()
+
     def _simulation_step(self, step_num: int = 1):
-        self._connection.simulationStep()
+        self._cache_lane_vehicle_ids.clear()
+        self._cache_vehicle_info.clear()
+        if step_num < 1:
+            step_num = 1
+        for _ in range(int(step_num)):
+            self._connection.simulationStep()
     
     def get_time(self) -> float:
-        return self._connection.simulation.getTime()
+        return self.simulation.getTime()
     
     def set_traffic_light_phase(self, traffic_light: Union[str, TrafficLight], phase: Union[int, TrafficLightPhase]):
         if isinstance(traffic_light, TrafficLight):
@@ -182,21 +193,36 @@ class SiliconSumoEngine(TrafficEnvEngine):
             phase = phase.index
         self.trafficlight.setPhase(traffic_light, phase)
     
-    def get_lane_vehicle_ids(self, lane_id) -> list[str]:
-        return self.lane.getLastStepVehicleIDs(lane_id)
+    def get_traffic_light_phase(self, traffic_light: Union[str, TrafficLight]) -> TrafficLightPhase:
+        if isinstance(traffic_light, TrafficLight):
+            traffic_light = traffic_light.id
+        assert traffic_light in self.traffic_light_ids, f"traffic light {traffic_light} not found"
+        phase_index = self.trafficlight.getPhase(traffic_light)
+        return self.road_net.get_traffic_light(traffic_light).phases[phase_index]
+    
+    def get_lane_vehicle_ids(self, lane: Union[str, Lane]) -> list[str]:
+        if isinstance(lane, Lane):
+            lane = lane.id
+        if lane in self._cache_lane_vehicle_ids:
+            return self._cache_lane_vehicle_ids[lane]
+        self._cache_lane_vehicle_ids[lane] = self.lane.getLastStepVehicleIDs(lane)
+        return self._cache_lane_vehicle_ids[lane]
     
     def get_vehicle_info(self, vehicle_id) -> Vehicle:
+        if vehicle_id in self._cache_vehicle_info:
+            return self._cache_vehicle_info[vehicle_id]
+
         running = (self.vehicle.getRouteIndex(vehicle_id) != -1)
 
         if not running:
-            return Vehicle(vehicle_id, running=False)
+            vehicle = Vehicle(vehicle_id, running=False)
 
         else:
             lane_position = self.vehicle.getLanePosition(vehicle_id)
             speed = self.vehicle.getSpeed(vehicle_id)
             drivable_id = self.vehicle.getLaneID(vehicle_id)
             route = self.vehicle.getRoute(vehicle_id)
-            return Vehicle(
+            vehicle = Vehicle(
                 id=vehicle_id,
                 running=True,
                 lane_position=lane_position,
@@ -204,3 +230,11 @@ class SiliconSumoEngine(TrafficEnvEngine):
                 drivable_id=drivable_id,
                 route=route
             )
+        
+        self._cache_vehicle_info[vehicle_id] = vehicle
+        return vehicle
+    
+    # def get_lane_queue_length(self, lane: Union[str, Lane], speed_threshold = None) -> int:
+    #     if isinstance(lane, Lane):
+    #         lane = lane.id
+    #     return self.lane.getLastStepHaltingNumber(lane)
