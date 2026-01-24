@@ -229,7 +229,8 @@ class SiliconSumoEngine(TrafficEngine):
     def get_traffic_light_phase(self, traffic_light: Union[str, TrafficLight]) -> TrafficLightPhase:
         if isinstance(traffic_light, TrafficLight):
             traffic_light = traffic_light.id
-        assert traffic_light in self.traffic_light_ids, f"traffic light {traffic_light} not found"
+        if traffic_light not in self.traffic_light_ids:
+            raise ValueError(f"traffic light {traffic_light} not found")
         phase_index = self.trafficlight.getPhase(traffic_light)
         return self.road_net.get_traffic_light(traffic_light).phases[phase_index]
     

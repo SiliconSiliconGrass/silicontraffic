@@ -34,7 +34,7 @@ class MovementsMonitor(Monitor):
             vehicle_ids = self.engine.get_lane_vehicle_ids(lane)
             lane_queue_length = self.engine.get_lane_queue_length(lane)
 
-            if lane_queue_length > 0:
+            if lane_queue_length == 0:
                 continue
 
             if num_movements == 1:

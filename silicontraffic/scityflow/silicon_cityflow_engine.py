@@ -107,8 +107,9 @@ class SiliconCityFlowEngine(TrafficEngine):
         # it seems that cityflow does not provide a method to get traffic light phase, so we cache it
         if isinstance(traffic_light, TrafficLight):
             traffic_light = traffic_light.id
-        assert traffic_light in self.traffic_light_ids, f"traffic light {traffic_light} not found"
-        phase_index = self._cache_traffic_light_phase_map[traffic_light]
+        if traffic_light not in self.road_net.traffic_light_bank:
+            raise ValueError(f"traffic light {traffic_light} not found")
+        phase_index = self._cache_traffic_light_phase_map.get(traffic_light, 0)
         return self.road_net.get_traffic_light(traffic_light).phases[phase_index]
 
     def get_vehicle_ids(self) -> list[str]:
@@ -118,8 +119,10 @@ class SiliconCityFlowEngine(TrafficEngine):
         if isinstance(lane, Lane):
             lane = lane.id
 
-        if lane not in self._cache_lane_vehicle_ids:
+        if lane not in self.road_net.lane_bank:
             raise ValueError(f"lane {lane} not found")
+        if lane not in self._cache_lane_vehicle_ids:
+            return []
         return self._cache_lane_vehicle_ids[lane]
 
     def get_vehicle_info(self, vehicle_id) -> Vehicle:
