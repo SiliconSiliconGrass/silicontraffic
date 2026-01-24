@@ -46,14 +46,14 @@ from typing import Callable, Union
 
 from .sumo_road_net import load_sumo_road_net
 from .get_unique_port import get_unique_port
-from ..abstract_traffic_env_engine import TrafficEnvEngine
+from ..abstract_traffic_env_engine import TrafficEngine
 from ..road_net import *
 from ..vehicle import Vehicle
 
 SUMO = check_binary('sumo')
 SUMO_GUI = check_binary('sumo-gui')
 
-class SiliconSumoEngine(TrafficEnvEngine):
+class SiliconSumoEngine(TrafficEngine):
     def __init__(self, sumocfg_path: str, log_path: str = "temp/", port: int = None, seed: int = None, time_to_teleport: int = 600, waiting_time_memory: int = 100, use_gui: bool = False):
         super().__init__()
         self.sumocfg_path = sumocfg_path

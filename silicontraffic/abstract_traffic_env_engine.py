@@ -3,7 +3,7 @@ from typing import Union, List, Callable
 from .road_net import *
 from .vehicle import Vehicle
 
-class TrafficEnvEngine(ABC):
+class TrafficEngine(ABC):
     """
     Abstract base class for traffic environment engines.
 
@@ -22,7 +22,7 @@ class TrafficEnvEngine(ABC):
     """`TrafficEnvEngine` instances should provide `road_net` attribute, to ensure convenient access to road net structure info."""
 
     def __init__(self):
-        self.step_handlers: List[Callable[['TrafficEnvEngine'], None]] = []
+        self.step_handlers: List[Callable[['TrafficEngine'], None]] = []
 
     @abstractmethod
     def reset(self):
@@ -154,7 +154,7 @@ class TrafficEnvEngine(ABC):
         else:
             self._simulation_step(step_num) # be more efficient when no step handlers registered
     
-    def on_step(self, handler: Callable[['TrafficEnvEngine'], None]):
+    def on_step(self, handler: Callable[['TrafficEngine'], None]):
         """
         Register a step handler function.
 

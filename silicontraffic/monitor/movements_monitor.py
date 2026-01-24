@@ -1,5 +1,5 @@
 from .abstract_monitor import Monitor
-from ..abstract_traffic_env_engine import TrafficEnvEngine
+from ..abstract_traffic_env_engine import TrafficEngine
 from ..movement_modeling import Movement, MovementRoadNet
 
 from typing import Union
@@ -11,7 +11,7 @@ class MovementsMonitor(Monitor):
     def __init__(self):
         super().__init__()
 
-    def attach_to(self, engine: TrafficEnvEngine):
+    def attach_to(self, engine: TrafficEngine):
         self.engine = engine
         # self.setup_auto_reset(engine)
 

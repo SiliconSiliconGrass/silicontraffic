@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from ..abstract_traffic_env_engine import TrafficEnvEngine
+from ..abstract_traffic_env_engine import TrafficEngine
 
 class Monitor(ABC):
     """
@@ -9,7 +9,7 @@ class Monitor(ABC):
         self._auto_reset = False
 
     @abstractmethod
-    def attach_to(self, engine: TrafficEnvEngine):
+    def attach_to(self, engine: TrafficEngine):
         pass
 
     @abstractmethod
@@ -19,7 +19,7 @@ class Monitor(ABC):
         """
         pass
     
-    def setup_auto_reset(self, engine: TrafficEnvEngine):
+    def setup_auto_reset(self, engine: TrafficEngine):
         """
         Setup auto reset function, so that the monitor will reset automatically when engine is reset.
         """
@@ -31,7 +31,7 @@ class Monitor(ABC):
         self._auto_reset_prev_recorded_time = None
 
         @engine.on_step
-        def _reset_monitor(_: TrafficEnvEngine):
+        def _reset_monitor(_: TrafficEngine):
             curr_time = engine.get_time()
             if self._auto_reset_prev_recorded_time is not None and curr_time < self._auto_reset_prev_recorded_time: # reset when time is smaller than the last recorded time
                 self.reset()

@@ -8,7 +8,7 @@ except (ImportError, ModuleNotFoundError):
 
 from ..ssumo.silicon_sumo_engine import SiliconSumoEngine
 from .abstract_monitor import Monitor
-from ..abstract_traffic_env_engine import TrafficEnvEngine
+from ..abstract_traffic_env_engine import TrafficEngine
 from ..vehicle import Vehicle
 
 
@@ -25,7 +25,7 @@ class GlobalMonitor(Monitor):
     def __init__(self):
         super().__init__()
 
-    def attach_to(self, engine: TrafficEnvEngine):
+    def attach_to(self, engine: TrafficEngine):
         self.engine = engine
         self.setup_auto_reset(engine)
         self.engine.on_step(lambda _: self._on_step())

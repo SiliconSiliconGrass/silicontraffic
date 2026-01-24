@@ -7,11 +7,11 @@ import json
 import os
 
 from .cityflow_road_net import load_cityflow_road_net
-from ..abstract_traffic_env_engine import TrafficEnvEngine
+from ..abstract_traffic_env_engine import TrafficEngine
 from ..road_net import *
 from ..vehicle import Vehicle
 
-class SiliconCityFlowEngine(TrafficEnvEngine):
+class SiliconCityFlowEngine(TrafficEngine):
     """
     General CityFlow engine implementation
     """
