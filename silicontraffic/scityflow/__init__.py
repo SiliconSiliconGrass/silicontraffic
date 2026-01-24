@@ -1,2 +1,2 @@
 from .cityflow_road_net import load_cityflow_road_net
-from .silicon_cityflow_engine import SiliconCityFlowEngine as Engine
+from .silicon_cityflow_engine import SiliconCityFlowEngine

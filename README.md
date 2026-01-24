@@ -30,11 +30,11 @@ pip install .
 ### SUMO Example
 
 ```python
-from silicontraffic.ssumo import Engine
+from silicontraffic import SiliconSumoEngine
 
 # Initialize SUMO engine
 sumo_cfg_path = "examples/data/sumo/MoST/most.sumocfg"
-engine = Engine(sumo_cfg_path, use_gui=True)
+engine = SiliconSumoEngine(sumo_cfg_path, use_gui=True)
 
 # Reset the simulation
 engine.reset()
@@ -50,11 +50,11 @@ engine.terminate()
 ### CityFlow Example
 
 ```python
-from silicontraffic.scityflow import Engine
+from silicontraffic import SiliconCityFlowEngine
 
 # Initialize CityFlow engine
 cityflow_config_path = "examples/data/cityflow/hangzhou/cityflow.config"
-engine = Engine(cityflow_config_path)
+engine = SiliconCityFlowEngine(cityflow_config_path)
 
 # Reset the simulation
 engine.reset()
@@ -62,7 +62,12 @@ engine.reset()
 # Run simulation steps
 for _ in range(100):
     engine.step()
+
+# Terminate the simulation
+engine.terminate()
 ```
+
+For more detailed examples, please refer to the [`examples/scripts/`](./examples/scripts) directory.
 
 ## Project Structure
 

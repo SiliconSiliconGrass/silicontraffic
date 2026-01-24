@@ -9,13 +9,13 @@ data_dir = os.path.join(curr_dir, "../data")
 root_dir = os.path.join(curr_dir, "../..")
 sys.path.insert(0, root_dir)
 
-from silicontraffic import scityflow
+from silicontraffic import SiliconCityFlowEngine
 from silicontraffic.monitor import GlobalMonitor, MovementsMonitor
 
 cityflow_config_path = os.path.join(data_dir, "cityflow/hangzhou/cityflow.config")
 
 # create engine
-engine = scityflow.Engine(cityflow_config_path)
+engine = SiliconCityFlowEngine(cityflow_config_path)
 
 # create data monitors
 global_monitor = GlobalMonitor()
@@ -32,7 +32,7 @@ def choose_phases():
         for traffic_light in engine.road_net.traffic_lights
     }
 
-num_steps = 600
+num_steps = 3600
 min_phase_duration = 30
 
 # perform one simple episode
