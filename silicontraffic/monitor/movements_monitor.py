@@ -44,19 +44,40 @@ class MovementsMonitor(Monitor):
                 vehicles = [self.engine.get_vehicle_info(vehicle_id) for vehicle_id in vehicle_ids]
 
                 first_vehicle = max(vehicles, key=lambda v: v.lane_position) # first vehicle in the queue
-                try:
-                    curr_edge_index = first_vehicle.route.index(movement.from_edge.id)
-                    next_edge_id = first_vehicle.route[curr_edge_index + 1]
 
-                    if next_edge_id == movement.to_edge.id:
-                        sum_queue_length += lane_queue_length
-
-                except ValueError:
+                if movement.from_edge.id not in first_vehicle.route:
                     raise ValueError(f"Vehicle {first_vehicle.id} not in the movement's route")
-                
-                except IndexError:
-                    raise IndexError(f"Vehicle {first_vehicle.id} is on the last edge in the route")
 
+                curr_edge_index = first_vehicle.route.index(movement.from_edge.id)
+
+                if curr_edge_index == len(first_vehicle.route) - 1:
+                    # raise IndexError(f"Vehicle {first_vehicle.id} is on the last edge in the route")
+
+                    first_vehicle = None
+                    curr_edge_index = None
+
+                    sorted_vehicles = sorted(vehicles, key=lambda v: -v.lane_position) # the first vehicle in the queue is the one with the biggest lane_position
+                    sorted_vehicles = sorted_vehicles[1:]
+                    if len(sorted_vehicles) == 0:
+                        continue
+                    for vehicle in sorted_vehicles:
+                        if movement.from_edge.id not in vehicle.route:
+                            raise ValueError(f"Vehicle {first_vehicle.id} not in the movement's route")
+                        
+                        curr_edge_index = vehicle.route.index(movement.from_edge.id)
+
+                        if curr_edge_index < len(vehicle.route) - 1:
+                            # effective first vehicle
+                            first_vehicle = vehicle
+                            break
+
+                if first_vehicle is None:
+                    continue
+
+                next_edge_id = first_vehicle.route[curr_edge_index + 1]
+
+                if next_edge_id == movement.to_edge.id:
+                    sum_queue_length += lane_queue_length
         return sum_queue_length
     
     def get_movement_avg_queue_length(self, movement: Union[Movement, str]) -> float:

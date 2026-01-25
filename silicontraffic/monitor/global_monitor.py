@@ -106,11 +106,16 @@ class GlobalMonitor(Monitor):
         sum_travel_time = 0.0
         effective_vehicle_num = 0
 
-        for vehicle_id in self._vehicle_arrive_time:
-            if vehicle_id in self._vehicle_depart_time:
+        curr_time = self.engine.get_time()
+
+        for vehicle_id in self._vehicle_depart_time:
+            if vehicle_id in self._vehicle_arrive_time:
                 sum_travel_time += self._vehicle_arrive_time[vehicle_id] - self._vehicle_depart_time[vehicle_id]
                 effective_vehicle_num += 1
-
+            else:
+                sum_travel_time += curr_time - self._vehicle_depart_time[vehicle_id]
+                effective_vehicle_num += 1
+        
         return sum_travel_time / effective_vehicle_num if effective_vehicle_num > 0 else 0.0
     
     def get_avg_queue_length(self) -> float:

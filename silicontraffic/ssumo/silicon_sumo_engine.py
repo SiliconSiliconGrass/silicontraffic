@@ -14,6 +14,7 @@ import random
 import time
 import xml.etree.ElementTree as ET
 
+from pathlib import Path
 from sumolib import checkBinary as check_binary
 
 # Import these domain classes for type hint purpose
@@ -67,6 +68,9 @@ class SiliconSumoEngine(TrafficEngine):
         self.port = port
 
         self.log_path = log_path
+
+        Path(log_path).mkdir(parents=True, exist_ok=True)
+
         self.time_to_teleport = time_to_teleport
         self.waiting_time_memory = waiting_time_memory
         self.use_gui = use_gui
@@ -107,6 +111,8 @@ class SiliconSumoEngine(TrafficEngine):
         self._cache_lane_vehicle_ids: dict[str, list[str]] = {} # lane id -> list of vehicle ids
         self._cache_vehicle_info: dict[str, Vehicle] = {} # vehicle id -> vehicle
         self._cache_vehicle_route_map: dict[str, list[str]] = {} # vehicle id -> route (list of edge ids)
+        self._cache_traffic_light_phases: dict[str, int] = {} # traffic light id -> phase index
+        self._cache_time = 0.0
     
     def update_road_net(self):
         # Parse sumocfg to get net-file path
@@ -126,6 +132,7 @@ class SiliconSumoEngine(TrafficEngine):
     def terminate(self):
         if self._connection:
             self._connection.close()
+            self._connection = None
     
     def reset(self):
         if self._connection:
@@ -177,14 +184,31 @@ class SiliconSumoEngine(TrafficEngine):
         self._cache_lane_vehicle_ids.clear()
         self._cache_vehicle_info.clear()
         self._cache_vehicle_route_map.clear()
+        self._cache_traffic_light_phases.clear()
+        self._cache_time = 0.0
 
     def _simulation_step(self, step_num: int = 1):
         self._cache_lane_vehicle_ids.clear()
         self._cache_vehicle_info.clear()
         if step_num < 1:
             step_num = 1
+
         for _ in range(int(step_num)):
+
+            for traffic_light in self.road_net.traffic_lights:
+                phase_index = 0
+                if traffic_light.id in self._cache_traffic_light_phases:
+                    # to avoid automatic phase transfer, we set the light phases again according to cache
+                    phase_index = self._cache_traffic_light_phases[traffic_light.id]
+                self.trafficlight.setPhase(traffic_light.id, self._cache_traffic_light_phases[traffic_light.id])
+
             self._connection.simulationStep()
+            self._cache_time = self.simulation.getTime()
+
+            for traffic_light in self.road_net.traffic_lights:
+                phase_index = self.trafficlight.getPhase(traffic_light.id)
+                self._cache_traffic_light_phases[traffic_light.id] = phase_index
+
             departed_vehicle_ids = self.simulation.getDepartedIDList()
             arrived_vehicle_ids = self.simulation.getArrivedIDList()
             for vehicle_id in departed_vehicle_ids:
@@ -214,7 +238,7 @@ class SiliconSumoEngine(TrafficEngine):
             self._cache_last_step_arrived_vehicle_ids = arrived_vehicle_ids
     
     def get_time(self) -> float:
-        return self.simulation.getTime()
+        return self._cache_time
     
     def get_vehicle_ids(self) -> list[str]:
         return list(self._cache_vehicle_info.keys())
@@ -224,14 +248,22 @@ class SiliconSumoEngine(TrafficEngine):
             traffic_light = traffic_light.id
         if isinstance(phase, TrafficLightPhase):
             phase = phase.index
-        self.trafficlight.setPhase(traffic_light, phase)
+        self._cache_traffic_light_phases[traffic_light] = phase
+        # the chosen phases will be set at next simulation step
+        # see self._simulation_step()
     
     def get_traffic_light_phase(self, traffic_light: Union[str, TrafficLight]) -> TrafficLightPhase:
         if isinstance(traffic_light, TrafficLight):
             traffic_light = traffic_light.id
         if traffic_light not in self.traffic_light_ids:
             raise ValueError(f"traffic light {traffic_light} not found")
-        phase_index = self.trafficlight.getPhase(traffic_light)
+        # phase_index = self.trafficlight.getPhase(traffic_light)
+
+        # since all traffic lights are controlled by python
+        # we read phase indices from cache, instead of using traci api
+        phase_index = 0
+        if traffic_light in self._cache_traffic_light_phases:
+            phase_index = self._cache_traffic_light_phases[traffic_light]
         return self.road_net.get_traffic_light(traffic_light).phases[phase_index]
     
     def get_lane_vehicle_ids(self, lane: Union[str, Lane]) -> list[str]:

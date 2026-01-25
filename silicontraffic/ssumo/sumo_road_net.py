@@ -79,7 +79,9 @@ def load_sumo_road_net(path_to_road_net_file: str) -> RoadNet:
 
         for connection in tl_connections:
             from_lane, to_lane, link_index = connection
-            link_objs[link_index] = LaneLink(from_lane, to_lane, link_lane=None) # to ensure the order of lane links
+            from_lane_obj = lane_bank[from_lane.getID()]
+            to_lane_obj = lane_bank[to_lane.getID()]
+            link_objs[link_index] = LaneLink(from_lane_obj, to_lane_obj, link_lane=None) # to ensure the order of lane links
 
         traffic_light_program: sumolib.net.TLSProgram = traffic_light.getPrograms()["0"] # using the default program
         traffic_light_phases: list[sumolib.net.Phase] = traffic_light_program.getPhases()
