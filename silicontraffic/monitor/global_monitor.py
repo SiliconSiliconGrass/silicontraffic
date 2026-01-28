@@ -38,6 +38,7 @@ class GlobalMonitor(Monitor):
         self._vehicle_depart_time: dict[str, float] = {} # vehicle id -> depart time
         self._vehicle_arrive_time: dict[str, float] = {} # vehicle id -> arrive time
         self._global_avg_queue_length: list[float] = [] # average queue length of all lanes (at each step)
+        self._throughput = 0 # number of vehicles that arrive
     
     def reset(self):
         self._vehicle_waiting_time.clear()
@@ -45,14 +46,17 @@ class GlobalMonitor(Monitor):
         self._vehicle_is_waiting.clear()
         self._vehicle_depart_time.clear()
         self._vehicle_arrive_time.clear()
-
+        self._global_avg_queue_length.clear()
+        self._throughput = 0 # number of vehicles that arrive
+    
     def _on_step(self):
         curr_time = self.engine.get_time()
         
         # vehicle based stats
         departed_vehicle_ids = self.engine.get_last_step_departed_vehicle_ids()
         arrived_vehicle_ids = self.engine.get_last_step_arrived_vehicle_ids()
-
+        self._throughput += len(arrived_vehicle_ids)
+        
         all_vehicle_ids = self.engine.get_vehicle_ids()
 
         for vehicle_id in all_vehicle_ids:
@@ -123,3 +127,9 @@ class GlobalMonitor(Monitor):
         return the average queue length of all lanes
         """
         return sum(self._global_avg_queue_length) / len(self._global_avg_queue_length) if len(self._global_avg_queue_length) > 0 else 0.0
+
+    def get_throughput(self) -> int:
+        """
+        return the number of vehicles that arrive
+        """
+        return self._throughput
