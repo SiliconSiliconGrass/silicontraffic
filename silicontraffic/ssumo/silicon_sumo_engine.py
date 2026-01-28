@@ -200,7 +200,7 @@ class SiliconSumoEngine(TrafficEngine):
                 if traffic_light.id in self._cache_traffic_light_phases:
                     # to avoid automatic phase transfer, we set the light phases again according to cache
                     phase_index = self._cache_traffic_light_phases[traffic_light.id]
-                self.trafficlight.setPhase(traffic_light.id, self._cache_traffic_light_phases[traffic_light.id])
+                self.trafficlight.setPhase(traffic_light.id, phase_index)
 
             self._connection.simulationStep()
             self._cache_time = self.simulation.getTime()
