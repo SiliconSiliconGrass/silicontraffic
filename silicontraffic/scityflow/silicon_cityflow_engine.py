@@ -62,12 +62,23 @@ class SiliconCityFlowEngine(TrafficEngine):
         for _ in range(int(step_num)):
             self.eng.next_step()
             self._curr_time = self.eng.get_current_time()
-            self._cache_lane_vehicle_ids = self.eng.get_lane_vehicles()
+
+            lane_vehicle_dict: dict[str, list[str]] = self.eng.get_lane_vehicles()
+            # ignore shadow vehicles
+            lane_vehicle_dict = {
+                lane_id: [vid for vid in vehicle_ids if not vid.endswith("_shadow")] \
+                for (lane_id, vehicle_ids) in lane_vehicle_dict.items()
+            }
+            self._cache_lane_vehicle_ids = lane_vehicle_dict
     
             curr_vehicle_ids: set[str] = set()
 
             for lane_vehicle_ids in self._cache_lane_vehicle_ids.values():
                 for vehicle_id in lane_vehicle_ids:
+
+                    # if vehicle_id.endswith("shadow"):
+                    #     # skip shadow vehicles
+                    #     continue
 
                     info_dict: dict = self.eng.get_vehicle_info(vehicle_id)
                     if "running" not in info_dict or not info_dict["running"]:
@@ -86,7 +97,7 @@ class SiliconCityFlowEngine(TrafficEngine):
                     )
                     self._cache_vehicle_info[vehicle_id] = vehicle
 
-                curr_vehicle_ids.update(lane_vehicle_ids)
+                    curr_vehicle_ids.add(vehicle_id)
             
             self._last_step_departed_vehicle_ids = curr_vehicle_ids - self._prev_vehicle_ids
             self._last_step_arrived_vehicle_ids = self._prev_vehicle_ids - curr_vehicle_ids

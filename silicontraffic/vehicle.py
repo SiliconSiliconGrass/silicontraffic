@@ -3,7 +3,6 @@ from dataclasses import dataclass, field
 @dataclass
 class Vehicle:
     id: str
-    # running: bool
 
     lane_position: float = None
     """The distance vehicle has traveled along current lane."""
@@ -14,6 +13,6 @@ class Vehicle:
     route: list[str] = field(default_factory=list) # a list of edge ids
 
     def __repr__(self) -> str:
-        return f'Vehicle(id={self.id}, running={self.running}, lane_position={self.lane_position}, speed={self.speed}, drivable_id={self.drivable_id}, vehicle_type={self.vehicle_type}, route={self.route})'
+        return f'Vehicle(id={self.id}, lane_position={self.lane_position}, speed={self.speed}, drivable_id={self.drivable_id}, vehicle_type={self.vehicle_type}, route={self.route})'
     def __str__(self) -> str:
         return self.__repr__()

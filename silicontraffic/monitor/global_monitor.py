@@ -37,6 +37,7 @@ class GlobalMonitor(Monitor):
 
         self._vehicle_depart_time: dict[str, float] = {} # vehicle id -> depart time
         self._vehicle_arrive_time: dict[str, float] = {} # vehicle id -> arrive time
+        self._vehicle_travel_time_list: list[float] = []
         self._global_avg_queue_length: list[float] = [] # average queue length of all lanes (at each step)
         self._throughput = 0 # number of vehicles that arrive
     
@@ -46,6 +47,7 @@ class GlobalMonitor(Monitor):
         self._vehicle_is_waiting.clear()
         self._vehicle_depart_time.clear()
         self._vehicle_arrive_time.clear()
+        self._vehicle_travel_time_list.clear()
         self._global_avg_queue_length.clear()
         self._throughput = 0 # number of vehicles that arrive
     
@@ -81,10 +83,17 @@ class GlobalMonitor(Monitor):
                 self._vehicle_is_waiting[vehicle_id] = False
 
         for vehicle_id in departed_vehicle_ids:
+            # if vehicle_id in self._vehicle_depart_time:
+            #     print(f"Vehicle {vehicle_id} departs more than once!")
+            #     breakpoint()
             self._vehicle_depart_time[vehicle_id] = curr_time # record vehicle depart time
 
         for vehicle_id in arrived_vehicle_ids:
-            self._vehicle_arrive_time[vehicle_id] = curr_time # record vehicle arrive time
+            if vehicle_id not in self._vehicle_depart_time:
+                raise ValueError(f"Vehicle {vehicle_id} arrives before departure!")
+            self._vehicle_travel_time_list.append(curr_time - self._vehicle_depart_time[vehicle_id])
+            self._vehicle_depart_time.pop(vehicle_id)
+            # self._vehicle_arrive_time[vehicle_id] = curr_time # record vehicle arrive time
 
         # lane based stats
         sum_queue_length = sum([self.engine.get_lane_queue_length(lane) for lane in self.engine.road_net.lanes])
@@ -110,18 +119,23 @@ class GlobalMonitor(Monitor):
         sum_travel_time = 0.0
         effective_vehicle_num = 0
 
-        curr_time = self.engine.get_time()
+        # curr_time = self.engine.get_time()
 
-        for vehicle_id in self._vehicle_depart_time:
-            if vehicle_id in self._vehicle_arrive_time:
-                sum_travel_time += self._vehicle_arrive_time[vehicle_id] - self._vehicle_depart_time[vehicle_id]
-                effective_vehicle_num += 1
-            else:
-                sum_travel_time += curr_time - self._vehicle_depart_time[vehicle_id]
-                effective_vehicle_num += 1
+        # for vehicle_id in self._vehicle_depart_time:
+        #     if vehicle_id in self._vehicle_arrive_time:
+        #         sum_travel_time += self._vehicle_arrive_time[vehicle_id] - self._vehicle_depart_time[vehicle_id]
+        #         effective_vehicle_num += 1
+        #     else:
+        #         sum_travel_time += curr_time - self._vehicle_depart_time[vehicle_id]
+        #         effective_vehicle_num += 1
         
-        return sum_travel_time / effective_vehicle_num if effective_vehicle_num > 0 else 0.0
-    
+        # return sum_travel_time / effective_vehicle_num if effective_vehicle_num > 0 else 0.0
+
+        if len(self._vehicle_travel_time_list) == 0:
+            return 0
+        else:
+            return sum(self._vehicle_travel_time_list) / len(self._vehicle_travel_time_list)
+
     def get_avg_queue_length(self) -> float:
         """
         return the average queue length of all lanes
