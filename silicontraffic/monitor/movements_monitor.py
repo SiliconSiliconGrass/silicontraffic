@@ -94,3 +94,39 @@ class MovementsMonitor(Monitor):
         assert movement is not None, f"Movement {movement} not found in engine.road_net"
         
         return max([lane.length for lane in movement.from_lanes])
+    
+    def get_movement_effective_vehicles(self, movement: Union[Movement, str], effective_range: float = 100) -> int:
+        if isinstance(movement, str):
+            movement = self.road_net.get_movement(movement)
+        assert movement is not None, f"Movement {movement} not found in engine.road_net"
+        
+        list_lane_effective_vehicles = []
+        for lane in movement.from_lanes:
+            # TODO: check movement demand
+            lane_effective_vehicles = 0
+            vehicle_ids = self.engine.get_lane_vehicle_ids(lane)
+            for vehicle_id in vehicle_ids:
+                vehicle = self.engine.get_vehicle_info(vehicle_id)
+                if lane.length - vehicle.lane_position > effective_range:
+                    continue
+                lane_effective_vehicles += 1
+            list_lane_effective_vehicles.append(lane_effective_vehicles)
+
+        movement_effective_vehicles = sum(list_lane_effective_vehicles) / len(movement.from_lanes) if len(movement.from_lanes) > 0 else 0
+        return movement_effective_vehicles
+
+    def get_movement_efficient_pressure(self, movement: Union[Movement, str]) -> float:
+        if isinstance(movement, str):
+            movement = self.road_net.get_movement(movement)
+        assert movement is not None, f"Movement {movement} not found in engine.road_net"
+        
+        upstream_avg_queue_length = self.get_movement_avg_queue_length(movement)
+
+        list_downstream_avg_queue_length = []
+        for downstream_movement in self.road_net.get_downstream_movements(movement):
+            list_downstream_avg_queue_length.append(self.get_movement_avg_queue_length(downstream_movement))
+        downstream_avg_queue_length = sum(list_downstream_avg_queue_length) / len(self.road_net.get_downstream_movements(movement)) \
+            if len(self.road_net.get_downstream_movements(movement)) > 0 else 0
+        
+        pressure = upstream_avg_queue_length - downstream_avg_queue_length
+        return pressure
