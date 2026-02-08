@@ -25,7 +25,7 @@ class MovementsMonitor(Monitor):
     
     def get_movement_sum_queue_length(self, movement: Union[Movement, str]) -> int:
         if isinstance(movement, str):
-            movement = self.road_net.get_movement(movement)
+            movement = self.road_net.movement_bank.get(movement)
         assert movement is not None, f"Movement {movement} not found in engine.road_net"
         
         sum_queue_length = 0
@@ -82,7 +82,7 @@ class MovementsMonitor(Monitor):
     
     def get_movement_avg_queue_length(self, movement: Union[Movement, str]) -> float:
         if isinstance(movement, str):
-            movement = self.road_net.get_movement(movement)
+            movement = self.road_net.movement_bank.get(movement)
         assert movement is not None, f"Movement {movement} not found in engine.road_net"
         
         sum_queue_length = self.get_movement_sum_queue_length(movement)
@@ -90,14 +90,14 @@ class MovementsMonitor(Monitor):
     
     def get_movement_max_lane_length(self, movement: Union[Movement, str]) -> float:
         if isinstance(movement, str):
-            movement = self.road_net.get_movement(movement)
+            movement = self.road_net.movement_bank.get(movement)
         assert movement is not None, f"Movement {movement} not found in engine.road_net"
         
         return max([lane.length for lane in movement.from_lanes])
     
     def get_movement_effective_vehicles(self, movement: Union[Movement, str], effective_range: float = 100) -> int:
         if isinstance(movement, str):
-            movement = self.road_net.get_movement(movement)
+            movement = self.road_net.movement_bank.get(movement)
         assert movement is not None, f"Movement {movement} not found in engine.road_net"
         
         list_lane_effective_vehicles = []
