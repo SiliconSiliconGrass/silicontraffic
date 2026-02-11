@@ -63,6 +63,11 @@ class SiliconCityFlowEngine(TrafficEngine):
             self.eng.next_step()
             self._curr_time = self.eng.get_current_time()
 
+
+            all_vehicle_ids: list[str] = self.eng.get_vehicles(include_waiting=False)
+            # process shadow vehicles (vehicles will become a shadow vehicle when it is at a intersection)
+            all_vehicle_ids = [vid if not vid.endswith("_shadow") else vid[:-7] for vid in all_vehicle_ids]
+
             lane_vehicle_dict: dict[str, list[str]] = self.eng.get_lane_vehicles()
             # ignore shadow vehicles
             lane_vehicle_dict = {
@@ -73,31 +78,31 @@ class SiliconCityFlowEngine(TrafficEngine):
     
             curr_vehicle_ids: set[str] = set()
 
-            for lane_vehicle_ids in self._cache_lane_vehicle_ids.values():
-                for vehicle_id in lane_vehicle_ids:
+            # for lane_vehicle_ids in self._cache_lane_vehicle_ids.values():
+            for vehicle_id in all_vehicle_ids:
 
-                    # if vehicle_id.endswith("shadow"):
-                    #     # skip shadow vehicles
-                    #     continue
+                # if vehicle_id.endswith("shadow"):
+                #     # skip shadow vehicles
+                #     continue
 
-                    info_dict: dict = self.eng.get_vehicle_info(vehicle_id)
-                    if "running" not in info_dict or not info_dict["running"]:
-                        continue
+                info_dict: dict = self.eng.get_vehicle_info(vehicle_id)
+                if "running" not in info_dict or not info_dict["running"]:
+                    continue
 
-                    lane_position = float(info_dict["distance"])
-                    speed = float(info_dict["speed"])
-                    drivable_id = info_dict["drivable"]
-                    route: list[str] = info_dict["route"].split(" ")
-                    vehicle = Vehicle(
-                        id=vehicle_id,
-                        lane_position=lane_position,
-                        speed=speed,
-                        drivable_id=drivable_id,
-                        route=route
-                    )
-                    self._cache_vehicle_info[vehicle_id] = vehicle
+                lane_position = float(info_dict["distance"])
+                speed = float(info_dict["speed"])
+                drivable_id = info_dict["drivable"]
+                route: list[str] = info_dict["route"].split(" ")
+                vehicle = Vehicle(
+                    id=vehicle_id,
+                    lane_position=lane_position,
+                    speed=speed,
+                    drivable_id=drivable_id,
+                    route=route
+                )
+                self._cache_vehicle_info[vehicle_id] = vehicle
 
-                    curr_vehicle_ids.add(vehicle_id)
+                curr_vehicle_ids.add(vehicle_id)
             
             self._last_step_departed_vehicle_ids = curr_vehicle_ids - self._prev_vehicle_ids
             self._last_step_arrived_vehicle_ids = self._prev_vehicle_ids - curr_vehicle_ids
@@ -124,7 +129,7 @@ class SiliconCityFlowEngine(TrafficEngine):
         return self.road_net.get_traffic_light(traffic_light).phases[phase_index]
 
     def get_vehicle_ids(self) -> list[str]:
-        return list(self._cache_vehicle_info.keys())
+        return list(self._prev_vehicle_ids)
 
     def get_lane_vehicle_ids(self, lane: Union[str, Lane]) -> list[str]:
         if isinstance(lane, Lane):
