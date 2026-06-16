@@ -52,6 +52,10 @@ class Lane:
         return f'Lane(id={self.id}, parent_edge={self.parent_edge.id}, index={self.index}, length={self.length}, width={self.width}, speed_limit={self.speed_limit})'
     def __str__(self) -> str:
         return self.__repr__()
+    def __hash__(self):
+        return hash(self.id)
+    def __eq__(self, other: 'Lane'):
+        return self.id == other.id
 
 @dataclass
 class TrafficLight:

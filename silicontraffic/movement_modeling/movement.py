@@ -17,3 +17,9 @@ class Movement:
         return f'Movement(from_edge={self.from_edge.id}, to_edge={self.to_edge.id}, num_from_lanes={len(self.from_lanes)})'
     def __str__(self) -> str:
         return self.__repr__()
+    
+    def __hash__(self):
+        return hash(self.id)
+
+    def __eq__(self, other: 'Movement'):
+        return self.id == other.id
