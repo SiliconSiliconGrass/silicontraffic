@@ -32,7 +32,9 @@ class Edge:
         return len(self.lanes)
     
     def __repr__(self) -> str:
-        return f'Edge(id={self.id}, from_junction={self.from_junction.id}, to_junction={self.to_junction.id}, num_lanes={self.num_lanes})'
+        from_junction_id = self.from_junction.id if self.from_junction is not None else None
+        to_junction_id = self.to_junction.id if self.to_junction is not None else None
+        return f'Edge(id={self.id}, from_junction={from_junction_id}, to_junction={to_junction_id}, num_lanes={self.num_lanes})'
     def __str__(self) -> str:
         return self.__repr__()
 
@@ -49,7 +51,8 @@ class Lane:
     allowed: Iterable[str] = field(default_factory=list)
 
     def __repr__(self) -> str:
-        return f'Lane(id={self.id}, parent_edge={self.parent_edge.id}, index={self.index}, length={self.length}, width={self.width}, speed_limit={self.speed_limit})'
+        parent_edge_id = self.parent_edge.id if self.parent_edge is not None else None
+        return f'Lane(id={self.id}, parent_edge={parent_edge_id}, index={self.index}, length={self.length}, width={self.width}, speed_limit={self.speed_limit})'
     def __str__(self) -> str:
         return self.__repr__()
     def __hash__(self):
@@ -106,7 +109,10 @@ class LaneLink:
         return (self.from_lane.id == other.from_lane.id and self.to_lane.id == other.to_lane.id)
     
     def __repr__(self) -> str:
-        return f'LaneLink(from_lane={self.from_lane.id}, to_lane={self.to_lane.id}, link_lane={self.link_lane.id}, type={self.type})'
+        from_lane_id = self.from_lane.id if self.from_lane is not None else None
+        to_lane_id = self.to_lane.id if self.to_lane is not None else None
+        link_lane_id = self.link_lane.id if self.link_lane is not None else None
+        return f'LaneLink(from_lane={from_lane_id}, to_lane={to_lane_id}, link_lane={link_lane_id}, type={self.type})'
     def __str__(self) -> str:
         return self.__repr__()
 
@@ -133,7 +139,7 @@ class RoadNet:
     traffic_light_bank: dict[str, TrafficLight] = field(default_factory=dict)
 
     def __repr__(self) -> str:
-        return f'RoadNet({len(self.junction_bank)} junctions, {len(self.edge_bank)} edges, {len(self.lane_bank)} lanes, {len(self.traffic_light_bank)} traffic lights)'
+        return f'RoadNet(num_junctions={len(self.junction_bank)}, num_edges={len(self.edge_bank)}, num_lanes={len(self.lane_bank)}, num_traffic_lights={len(self.traffic_light_bank)})'
 
     def __str__(self) -> str:
         return self.__repr__()
