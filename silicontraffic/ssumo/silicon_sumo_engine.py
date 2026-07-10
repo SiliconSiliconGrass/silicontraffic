@@ -13,6 +13,7 @@ import subprocess
 import random
 import time
 import xml.etree.ElementTree as ET
+from typing import Optional
 
 from pathlib import Path
 from sumolib import checkBinary as check_binary
@@ -55,7 +56,7 @@ SUMO = check_binary('sumo')
 SUMO_GUI = check_binary('sumo-gui')
 
 class SiliconSumoEngine(TrafficEngine):
-    def __init__(self, sumocfg_path: str, log_path: str = "temp/", port: int = None, seed: int = None, time_to_teleport: int = 600, waiting_time_memory: int = 100, use_gui: bool = False):
+    def __init__(self, sumocfg_path: str, log_path: str = "temp/", port: int = None, seed: int = None, time_to_teleport: int = 600, waiting_time_memory: int = 100, use_gui: bool = False, trace_file_path: Optional[os.PathLike] = None):
         super().__init__()
         self.sumocfg_path = sumocfg_path
 
@@ -74,6 +75,7 @@ class SiliconSumoEngine(TrafficEngine):
         self.time_to_teleport = time_to_teleport
         self.waiting_time_memory = waiting_time_memory
         self.use_gui = use_gui
+        self.trace_file_path = trace_file_path
         
         self._connection: traci.connection.Connection = None
 
@@ -153,7 +155,7 @@ class SiliconSumoEngine(TrafficEngine):
 
         time.sleep(1) # wait for sumo to start
 
-        self._connection = traci.connect(port=self.port)
+        self._connection = traci.connect(port=self.port, traceFile=self.trace_file_path)
         
         # Set connections for domain instances, so that they can be used as exposed APIs
         self.busstop._setConnection(self._connection)
