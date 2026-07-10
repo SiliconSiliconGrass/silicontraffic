@@ -155,7 +155,7 @@ class SiliconSumoEngine(TrafficEngine):
 
         time.sleep(1) # wait for sumo to start
 
-        self._connection = traci.connect(port=self.port, traceFile=self.trace_file_path)
+        self._connection = traci.connect(port=self.port, traceFile=self.trace_file_path, traceGetters=False)
         
         # Set connections for domain instances, so that they can be used as exposed APIs
         self.busstop._setConnection(self._connection)
