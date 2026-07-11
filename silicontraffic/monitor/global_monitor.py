@@ -27,6 +27,8 @@ class GlobalMonitor(Monitor):
 
     def attach_to(self, engine: TrafficEngine):
         self.engine = engine
+        engine.global_monitor = self
+
         self.setup_auto_reset(engine)
         self.engine.on_step(lambda _: self._on_step())
 
