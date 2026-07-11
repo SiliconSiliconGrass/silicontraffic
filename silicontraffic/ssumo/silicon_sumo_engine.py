@@ -13,6 +13,7 @@ import subprocess
 import random
 import time
 import xml.etree.ElementTree as ET
+import shutil
 from typing import Optional
 
 from pathlib import Path
@@ -56,7 +57,7 @@ SUMO = check_binary('sumo')
 SUMO_GUI = check_binary('sumo-gui')
 
 class SiliconSumoEngine(TrafficEngine):
-    def __init__(self, sumocfg_path: str, log_path: str = "temp/", port: int = None, seed: int = None, time_to_teleport: int = 600, waiting_time_memory: int = 100, use_gui: bool = False, trace_file_path: Optional[os.PathLike] = None):
+    def __init__(self, sumocfg_path: str, log_path: str = "temp/", port: int = None, seed: int = None, time_to_teleport: int = 600, waiting_time_memory: int = 100, use_gui: bool = False, record_output_dir: Optional[os.PathLike] = None):
         super().__init__()
         self.sumocfg_path = sumocfg_path
 
@@ -75,7 +76,14 @@ class SiliconSumoEngine(TrafficEngine):
         self.time_to_teleport = time_to_teleport
         self.waiting_time_memory = waiting_time_memory
         self.use_gui = use_gui
-        self.trace_file_path = trace_file_path
+
+        if record_output_dir is not None:
+            record_output_dir = Path(record_output_dir)
+            record_output_dir.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(Path(sumocfg_path).parent, record_output_dir, dirs_exist_ok=True)
+            self.trace_file_path = record_output_dir / "play_record.py"
+        else:
+            self.trace_file_path = None
         
         self._connection: traci.connection.Connection = None
 
@@ -135,6 +143,20 @@ class SiliconSumoEngine(TrafficEngine):
         if self._connection:
             self._connection.close()
             self._connection = None
+        
+        # pack record file
+        if self.trace_file_path is not None:
+            tmp_file_path = str(self.trace_file_path) + ".tmp"
+            sumocfg_name = Path(self.sumocfg_path).name
+            with open(tmp_file_path, "w") as f:
+                f.write("import traci\n")
+                f.write(f"traci.start(['sumo-gui', '-c', '{sumocfg_name}', '--seed', '{self.seed}', '--time-to-teleport', '{self.time_to_teleport}', '--no-step-log', 'True', '--no-warnings', 'True', '--duration-log.disable', 'True'], port=None, label='default')\n")
+                with open(self.trace_file_path, 'r') as f_o:
+                    shutil.copyfileobj(f_o, f)
+            
+            os.remove(self.trace_file_path)
+            shutil.move(tmp_file_path, self.trace_file_path)
+
     
     def reset(self):
         if self._connection:
