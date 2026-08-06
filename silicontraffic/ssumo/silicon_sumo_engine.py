@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 try:
     import traci
     from traci.constants import VAR_LANE_ID, VAR_SPEED, VAR_LANEPOSITION

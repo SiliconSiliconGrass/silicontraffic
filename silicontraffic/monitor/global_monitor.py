@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 have_traci = True
 try:
     import traci

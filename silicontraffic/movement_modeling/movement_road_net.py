@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from ..road_net import *
 from .movement import Movement
 
