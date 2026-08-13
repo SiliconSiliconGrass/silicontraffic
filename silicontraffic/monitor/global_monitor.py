@@ -44,6 +44,7 @@ class GlobalMonitor(Monitor):
         self._vehicle_travel_time_list: list[float] = []
         self._global_avg_queue_length: list[float] = [] # average queue length of all lanes (at each step)
         self._throughput = 0 # number of vehicles that arrive
+        self._teleport_count = 0 # number of vehicles that started teleporting (removed from their jammed position)
     
     def reset(self):
         self._vehicle_waiting_time.clear()
@@ -54,6 +55,7 @@ class GlobalMonitor(Monitor):
         self._vehicle_travel_time_list.clear()
         self._global_avg_queue_length.clear()
         self._throughput = 0 # number of vehicles that arrive
+        self._teleport_count = 0
     
     def _on_step(self):
         curr_time = self.engine.get_time()
@@ -62,6 +64,8 @@ class GlobalMonitor(Monitor):
         departed_vehicle_ids = self.engine.get_last_step_departed_vehicle_ids()
         arrived_vehicle_ids = self.engine.get_last_step_arrived_vehicle_ids()
         self._throughput += len(arrived_vehicle_ids)
+        # vehicles removed from the net by jam teleporting (--time-to-teleport)
+        self._teleport_count += len(self.engine.simulation.getStartingTeleportIDList())
         
         all_vehicle_ids = self.engine.get_vehicle_ids()
 
@@ -151,3 +155,10 @@ class GlobalMonitor(Monitor):
         return the number of vehicles that arrive
         """
         return self._throughput
+
+    def get_teleport_count(self) -> int:
+        """
+        Return the number of vehicles that started teleporting (i.e. were
+        removed from a jammed position by `--time-to-teleport`).
+        """
+        return self._teleport_count
