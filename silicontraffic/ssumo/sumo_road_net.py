@@ -76,28 +76,34 @@ def load_sumo_road_net(path_to_road_net_file: str) -> RoadNet:
         traffic_light_id = traffic_light.getID()
 
         tl_connections: list[tuple[sumolib.net.lane.Lane, sumolib.net.lane.Lane, int]] = traffic_light.getConnections()
-        
-        link_objs = [None for _ in range(len(tl_connections))]
 
-        for connection in tl_connections:
-            from_lane, to_lane, link_index = connection
+        # link indices may not be contiguous (some links of the junction are
+        # not exposed as explicit connections); size by the largest index and
+        # compact afterwards, remapping phase states by the original index.
+        n_links = max((idx for _, _, idx in tl_connections), default=-1) + 1
+        link_objs = [None] * n_links
+        for from_lane, to_lane, link_index in tl_connections:
             from_lane_obj = lane_bank[from_lane.getID()]
             to_lane_obj = lane_bank[to_lane.getID()]
-            link_objs[link_index] = LaneLink(from_lane_obj, to_lane_obj, link_lane=None) # to ensure the order of lane links
+            link_objs[link_index] = LaneLink(from_lane_obj, to_lane_obj, link_lane=None)
+
+        controlled_links = [link for link in link_objs if link is not None]
+        trafficlight_obj = TrafficLight(traffic_light_id, controlled_links=controlled_links, phases=[])
 
         traffic_light_program: sumolib.net.TLSProgram = traffic_light.getPrograms()["0"] # using the default program
         traffic_light_phases: list[sumolib.net.Phase] = traffic_light_program.getPhases()
-
-        trafficlight_obj = TrafficLight(traffic_light_id, controlled_links=link_objs, phases=[])
-
         for i, phase in enumerate(traffic_light_phases):
-
             available_links = []
-            for state_char, link_obj in zip(phase.state, trafficlight_obj.controlled_links):
-                if state_char.upper() == 'G':
+            for state_char, link_obj in zip(phase.state, link_objs):
+                if link_obj is not None and state_char.upper() == 'G':
                     available_links.append(link_obj)
 
-            phase_obj = TrafficLightPhase(index=i, duration=phase.duration, parent_trafficlight=trafficlight_obj, available_links=available_links)
+            phase_obj = TrafficLightPhase(
+                index=i,
+                duration=phase.duration,
+                parent_trafficlight=trafficlight_obj,
+                available_links=available_links,
+            )
             trafficlight_obj.phases.append(phase_obj)
 
         trafficlight_bank[traffic_light_id] = trafficlight_obj

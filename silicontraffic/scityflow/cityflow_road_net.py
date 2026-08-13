@@ -62,7 +62,10 @@ def load_cityflow_road_net(road_net_file_path: str) -> RoadNet:
                 index=i,
                 width=width,
                 speed_limit=max_speed,
-                length=road_length
+                length=road_length,
+                # preserve the road geometry (CityFlow lane geometry lives at
+                # road level; all lanes share the road centerline)
+                shape=[(p['x'], p['y']) for p in road_points]
             )
             road_net.lane_bank[lane_id] = lane
             list_lanes.append(lane)
@@ -127,14 +130,42 @@ def load_cityflow_road_net(road_net_file_path: str) -> RoadNet:
                 link.from_lane.links.append(link)
         
         road_net.junction_bank[traffic_light.id].lane_links = links
-        if len(traffic_light_data['roadLinkIndices']) == 0:
-            # unsignalized intersection
+        if inter_data.get('virtual', False) or len(traffic_light_data['roadLinkIndices']) == 0:
+            # virtual intersections are mere geometry nodes (no signal), and
+            # intersections without roadLinkIndices are unsignalized
             continue
-    
+        if len(traffic_light_data['roadLinkIndices']) == 1:
+            # a single controlled movement is effectively always-green; no real
+            # signal (normalize would otherwise strip its only phase -> empty
+            # traffic light)
+            continue
+
         # 4.2 create traffic light phases
         phases: list[TrafficLightPhase] = []
         road_link_indices = traffic_light_data['roadLinkIndices']
         list_phase_data = traffic_light_data['lightphases']
+
+        if not list_phase_data:
+            # Many CityFlow road nets leave `lightphases` empty when the signal
+            # plan is supplied externally (RL / SOTL). Synthesize one phase per
+            # controlled road link so the converted net has a valid plan; the
+            # control algorithms will drive the phases anyway.
+            list_phase_data = [
+                {'time': 60.0, 'availableRoadLinks': [j]}
+                for j in range(len(road_link_indices))
+            ]
+        elif (
+            len(list_phase_data) == 1
+            and set(list_phase_data[0]['availableRoadLinks'])
+            == set(range(len(road_link_indices)))
+        ):
+            # a single all-green phase is a placeholder (every movement always
+            # green); replace it with one phase per controlled road link so the
+            # intersection stays controllable and conflict-free in SUMO
+            list_phase_data = [
+                {'time': 60.0, 'availableRoadLinks': [j]}
+                for j in range(len(road_link_indices))
+            ]
 
         for i, phase_data in enumerate(list_phase_data):
             time = phase_data['time']
