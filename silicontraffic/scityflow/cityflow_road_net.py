@@ -128,6 +128,7 @@ def load_cityflow_road_net(road_net_file_path: str) -> RoadNet:
                 )
                 links.append(link)
                 link.from_lane.links.append(link)
+                link.to_lane.incoming_links.append(link)
         
         road_net.junction_bank[traffic_light.id].lane_links = links
         if inter_data.get('virtual', False) or len(traffic_light_data['roadLinkIndices']) == 0:

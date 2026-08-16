@@ -69,6 +69,7 @@ def load_sumo_road_net(path_to_road_net_file: str) -> RoadNet:
             to_lane_obj = lane_bank[to_lane_id]
             lane_link_obj = LaneLink(from_lane_obj, to_lane_obj, link_lane=None)
             from_lane_obj.links.append(lane_link_obj)
+            to_lane_obj.incoming_links.append(lane_link_obj)
             junction_obj.lane_links.append(lane_link_obj)
     
     traffic_lights: list[sumolib.net.TLS] = sumo_net.getTrafficLights()
@@ -89,6 +90,12 @@ def load_sumo_road_net(path_to_road_net_file: str) -> RoadNet:
 
         controlled_links = [link for link in link_objs if link is not None]
         trafficlight_obj = TrafficLight(traffic_light_id, controlled_links=controlled_links, phases=[])
+        # a tlLogic may control connections at several junctions; record the
+        # junction(s) where its controlled links actually sit
+        trafficlight_obj.junctions = {
+            link.from_lane.parent_edge.to_junction
+            for link in controlled_links
+        }
 
         traffic_light_program: sumolib.net.TLSProgram = traffic_light.getPrograms()["0"] # using the default program
         traffic_light_phases: list[sumolib.net.Phase] = traffic_light_program.getPhases()

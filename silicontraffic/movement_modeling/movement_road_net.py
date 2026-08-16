@@ -13,6 +13,15 @@ class MovementRoadNet(RoadNet):
 
     def __init__(self, road_net: RoadNet):
         super().__init__(road_net.junction_bank, road_net.edge_bank, road_net.lane_bank, road_net.traffic_light_bank)
+        # the extended-lane structures built on the source road net are
+        # per-instance maps; copy them so SC-MP can consume the extensions
+        self.extended_lane_bank = dict(getattr(road_net, 'extended_lane_bank', {}))
+        self.incoming_lane_map = dict(getattr(road_net, 'incoming_lane_map', {}))
+        self.outgoing_lane_map = dict(getattr(road_net, 'outgoing_lane_map', {}))
+        self.outgoing_map = {
+            key: list(value)
+            for key, value in getattr(road_net, 'outgoing_map', {}).items()
+        }
 
         self.build_movements()
 
