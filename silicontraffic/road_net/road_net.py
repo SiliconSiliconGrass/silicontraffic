@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Iterable, TypeVar, Union
+from typing import Iterable, Optional, TypeVar, Union
 from dataclasses import dataclass, field
 
 @dataclass
@@ -227,6 +227,10 @@ class RoadNet:
     """ lane id -> ExtendedLane (or the plain Lane) used as this lane's outgoing """
     outgoing_map: dict[str, list[LaneLike]] = field(default_factory=dict)
     """ lane id / extended lane id -> list of outgoing LaneLike """
+    outgoing_extended_lane_bank: dict[str, 'ExtendedLane'] = field(default_factory=dict)
+    """ outgoing (downstream) head lane id -> ExtendedLane """
+    extended_lane_max_distance: Optional[float] = None
+    """ distance cap used when the extended lanes were built (None = no cap) """
 
     def __post_init__(self):
         self._junction_tl_map: dict[str, TrafficLight] = {}

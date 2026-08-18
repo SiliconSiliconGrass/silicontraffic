@@ -22,6 +22,8 @@ class MovementRoadNet(RoadNet):
             key: list(value)
             for key, value in getattr(road_net, 'outgoing_map', {}).items()
         }
+        self.outgoing_extended_lane_bank = dict(getattr(road_net, 'outgoing_extended_lane_bank', {}))
+        self.extended_lane_max_distance = getattr(road_net, 'extended_lane_max_distance', None)
 
         self.build_movements()
 

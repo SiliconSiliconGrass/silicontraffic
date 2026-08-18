@@ -152,31 +152,44 @@ class MovementsMonitor(Monitor):
 
         list_lane_effective_vehicles = []
         for lane_like in self._movement_lane_likes(movement):
-            lane_effective_vehicles = 0
-            if isinstance(lane_like, ExtendedLane):
-                lane_ids = {lane.id for lane in lane_like.lanes}
-                for lane in lane_like.lanes:
-                    tail_distance = self._tail_distance_to_head(lane, lane_like.head_lane, lane_ids)
-                    vehicle_ids = self.engine.get_lane_vehicle_ids(lane)
-                    for vehicle_id in vehicle_ids:
-                        vehicle = self.engine.get_vehicle_info(vehicle_id)
-                        distance_to_stop_line = (lane.length - vehicle.lane_position) + tail_distance
-                        if distance_to_stop_line > effective_range:
-                            continue
-                        lane_effective_vehicles += 1
-            else:
-                lane = lane_like
-                # TODO: check movement demand
-                vehicle_ids = self.engine.get_lane_vehicle_ids(lane)
-                for vehicle_id in vehicle_ids:
-                    vehicle = self.engine.get_vehicle_info(vehicle_id)
-                    if lane.length - vehicle.lane_position > effective_range:
-                        continue
-                    lane_effective_vehicles += 1
+            lane_effective_vehicles = self._lane_like_effective_vehicles(lane_like, effective_range)
             list_lane_effective_vehicles.append(lane_effective_vehicles)
 
         movement_effective_vehicles = sum(list_lane_effective_vehicles) / len(movement.from_lanes) if len(movement.from_lanes) > 0 else 0
         return movement_effective_vehicles
+
+
+    def get_lane_like_effective_vehicles(self, lane_like, effective_range: float = 100) -> int:
+        """
+        Number of vehicles on a lane (or an extended lane) within
+        `effective_range` meters of the stop line (the end of the head lane).
+        """
+        return self._lane_like_effective_vehicles(lane_like, effective_range)
+
+
+    def _lane_like_effective_vehicles(self, lane_like, effective_range: float) -> int:
+        lane_effective_vehicles = 0
+        if isinstance(lane_like, ExtendedLane):
+            lane_ids = {lane.id for lane in lane_like.lanes}
+            for lane in lane_like.lanes:
+                tail_distance = self._tail_distance_to_head(lane, lane_like.head_lane, lane_ids)
+                vehicle_ids = self.engine.get_lane_vehicle_ids(lane)
+                for vehicle_id in vehicle_ids:
+                    vehicle = self.engine.get_vehicle_info(vehicle_id)
+                    distance_to_stop_line = (lane.length - vehicle.lane_position) + tail_distance
+                    if distance_to_stop_line > effective_range:
+                        continue
+                    lane_effective_vehicles += 1
+        else:
+            lane = lane_like
+            # TODO: check movement demand
+            vehicle_ids = self.engine.get_lane_vehicle_ids(lane)
+            for vehicle_id in vehicle_ids:
+                vehicle = self.engine.get_vehicle_info(vehicle_id)
+                if lane.length - vehicle.lane_position > effective_range:
+                    continue
+                lane_effective_vehicles += 1
+        return lane_effective_vehicles
 
 
     def _tail_distance_to_head(self, lane, head_lane, lane_ids, memo=None) -> float:
